@@ -1,0 +1,69 @@
+# Java Compiler and Runner
+JC       = javac
+J        = java
+# Standard competitive programming flags (standard classpath)
+JFLAGS   = -d .
+JRUNFLAGS = -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:NewRatio=5 -Xms8M -Xmx512M -Xss64M
+
+# Problems
+TARGETS  = aplusb scheduling bouncers walk present surveys giveaway
+
+# Clear implicit rules
+.SUFFIXES:
+
+all: $(TARGETS)
+
+# Rule to compile a .java file into a .class file
+$(TARGETS): %: %.java
+	$(JC) $(JFLAGS) $<
+
+# Run and compare
+run:
+ifdef PROBLEM
+	@# 1. Ensure the .java file is compiled
+	@if [ -f "$(PROBLEM).java" ]; then \
+		$(JC) $(JFLAGS) $(PROBLEM).java; \
+	else \
+		echo "Error: $(PROBLEM).java not found."; \
+		exit 1; \
+	fi
+	
+	@# 2. Setup the runner
+	@EXEC="$(J) $(JRUNFLAGS) $(PROBLEM)"; \
+	if [ -d "tests/$(PROBLEM)" ]; then \
+		for input in tests/$(PROBLEM)/*.in; do \
+			if [ -f "$$input" ]; then \
+				BASE=$$(basename "$$input" .in); \
+				REF_OUT=$${input%.in}.out; \
+				if [ ! -f "$$REF_OUT" ]; then continue; fi; \
+				\
+				$$EXEC < $$input > tmp.out; \
+				EXIT_CODE=$$?; \
+				\
+				if [ $$EXIT_CODE -ne 0 ]; then \
+					echo "[$$BASE] Runtime error (Exit: $$EXIT_CODE)."; \
+					continue; \
+				fi; \
+				\
+				DIFF_RESULT=$$(diff -y -Z --suppress-common-lines tmp.out "$$REF_OUT" | head -n 10); \
+				if [ -z "$$DIFF_RESULT" ]; then \
+					echo "[$$BASE] Accepted."; \
+				else \
+					echo "[$$BASE] Wrong answer. Student (left) vs Expected (right):"; \
+					echo "$$DIFF_RESULT"; \
+				fi; \
+				rm -f tmp.out; \
+			fi; \
+		done; \
+	else \
+		echo "No tests found in tests/$(PROBLEM)/, running manually:"; \
+		$$EXEC; \
+	fi
+else
+	@echo "Usage: make run PROBLEM=<problem_name>"
+endif
+
+clean:
+	rm -f *.class tmp.out
+
+.PHONY: all clean run
