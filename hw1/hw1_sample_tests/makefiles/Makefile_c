@@ -1,0 +1,60 @@
+# Compiler flags
+CPP         = gcc
+CPPFLAGS    = -static -fno-asm -lm -s -Wl,--stack=268435456 -O2 -std=c11 
+# Problems
+TARGETS     = aplusb scheduling bouncers walk present surveys giveaway
+
+# Build all by default
+all: $(TARGETS)
+
+# Pattern rule for compiling
+%: %.cpp
+	$(CPP) $(CPPFLAGS) -o $@ $< -lm
+
+# Run and compare
+run:
+ifdef PROBLEM
+	@
+	@$(MAKE) --no-print-directory $(PROBLEM)
+	@if [ -f "$(PROBLEM)" ]; then \
+		EXEC="./$(PROBLEM)"; \
+	elif [ -f "$(PROBLEM).exe" ]; then \
+		EXEC="./$(PROBLEM).exe"; \
+	else \
+		echo "No executable for $(PROBLEM) found."; \
+		exit 1; \
+	fi; \
+	if [ -d "tests/$(PROBLEM)" ]; then \
+		for input in tests/$(PROBLEM)/*.in; do \
+			if [ -f "$$input" ]; then \
+				BASE=$$(basename "$$input" .in); \
+				REF_OUT=$${input%.in}.out; \
+				if [ ! -f "$$REF_OUT" ]; then continue; fi; \
+				$$EXEC < $$input > tmp.out; \
+				EXIT_CODE=$$?; \
+				if [ $$EXIT_CODE -ne 0 ]; then \
+					echo "[$$BASE] Runtime error (Exit: $$EXIT_CODE)."; \
+					continue; \
+				fi; \
+				DIFF_RESULT=$$(diff -y -Z --suppress-common-lines tmp.out "$$REF_OUT" | head -n 10); \
+				if [ -z "$$DIFF_RESULT" ]; then \
+					echo "[$$BASE] Accepted."; \
+				else \
+					echo "[$$BASE] Wrong answer. Student output (left) differs from expected output (right)."; \
+					echo "$$DIFF_RESULT"; \
+				fi; \
+				rm -f tmp.out; \
+			fi; \
+		done; \
+	else \
+		echo "No tests found in tests/$(PROBLEM)/, running manually:"; \
+		$$EXEC; \
+	fi
+else
+	@echo "Usage: make run PROBLEM=<problem_name>"
+endif
+
+clean:
+	rm -f $(TARGETS) *.o *.exe tmp.out
+
+.PHONY: all clean run
